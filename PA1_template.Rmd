@@ -1,25 +1,124 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Course Project 1"
+author: "Sha Li"
+date: "December 25, 2016"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+###1. Code for reading in the dataset and/or processing the data
 
+```{r}
+library(ggplot2)
+activity<-read.csv("activity.csv")
+```
 
+###2. Histogram of the total number of steps taken each day
 
-## What is mean total number of steps taken per day?
+Calculate total steps taken per day, missing value is ignored.
 
+```{r}
+totalSteps<-aggregate(activity$steps, list(Date=activity$date), FUN=sum)
+totalSteps$Date<-as.Date(totalSteps$Date, format="%Y-%m-%d")
+```
 
+Plot a histogram of total steps taken per day.
 
-## What is the average daily activity pattern?
+```{r, message=FALSE, warning=FALSE}
+qplot(x, data = totalSteps, xlab = "Total Steps Per Day", ylab = "Count", main = "Histogram of Total Steps Per Day")
+dev.copy(png, file="figure1.png")
+dev.off()
+```
 
+###3. Mean and median number of steps taken each day
 
+```{r}
+summary(totalSteps)
+meanSteps<-mean(totalSteps$x, na.rm = TRUE)
+medianSteps<-median(totalSteps$x, na.rm = TRUE)
+```
 
-## Imputing missing values
+The mean steps per day is `r meanSteps`, the median steps per day is `r medianSteps`.
 
+###4. Time series plot of the average number of steps taken
 
+Plot time series graph that shows the average daily activity pattern, missing value is ignored.
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r, message=FALSE, warning=FALSE}
+meanPattern<-aggregate(activity$steps, list(Interval=activity$interval), FUN=mean, na.rm=TRUE)
+ggplot(meanPattern, aes(Interval, x)) + geom_line() + xlab("Interval") + ylab("Averag Steps")+labs(title="Time Series of Average Steps")
+dev.copy(png, file="figure2.png")
+dev.off()
+```
+
+###5. The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r}
+summary(meanPattern)
+intervalMax<-meanPattern[which.max(meanPattern$x),1]
+```
+
+Maximum number of steps 206.170 can be found when the 5-minute interval is `r intervalMax`. 
+
+###6. Code to describe and show a strategy for imputing missing data
+```{r}
+summary(activity$steps)
+missing<-sum(is.na(activity$steps))
+```
+
+There are `r missing` NAs in the dataset.
+
+Calculate the mean steps based on the 5-minute interval and replace NAs with the mean to create a new dataset called "activityNew".
+
+```{r}
+meanDaily<-mean(activity$steps, na.rm = TRUE)
+activityNew<-as.data.frame(activity)
+activityNew[is.na(activityNew)]<-meanDaily
+```
+
+A new data set is created with NAs replaced by `r meanDaily`.
+
+###7. Histogram of the total number of steps taken each day after missing values are imputed
+```{r, message=FALSE, warning=FALSE}
+totalStepsNew<-aggregate(activityNew$steps, list(Date=activityNew$date), FUN=sum)
+totalStepsNew$Date<-as.Date(totalStepsNew$Date,format="%Y-%m-%d")
+qplot(x,data = totalStepsNew,xlab = "Total Steps Per Day", ylab = "Count", main = "Histogram of Total Steps Per Day (New)")
+dev.copy(png, file="figure3.png")
+dev.off()
+```
+
+Calculate the new mean and median after imputing NAs.
+
+```{r}
+summary(totalStepsNew)
+meanStepsNew<-round(mean(totalStepsNew$x))
+medianStepsNew<-round(median(totalStepsNew$x))
+```
+
+The new mean of total steps taken per day after imputing missing data is `r meanStepsNew`, the new median is `r medianStepsNew`. Both numbers almost remain the same after imputing NAs.
+
+###8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+Create a new factor variable in the dataset "activityNew" with two levels: "weekday" and "weekend".
+
+```{r}
+dayEnd<-activityNew$date
+dayEnd<-weekdays(as.Date(activityNew$date))
+dayEnd[dayEnd %in% c("Monday","Tuesday","Wednesday","Thursday","Friday")]<-"Weekday"
+dayEnd[dayEnd %in% c("Saturday","Sunday")]<-"Weekend"
+dayEnd<-factor(dayEnd, labels = c("Weekday","Weekend"))
+activityNew<-cbind(activityNew,dayEnd)
+```
+
+Calculate the average steps taken across all weekdays or weekends, plot two time series graphs on the condition of weekdays and weekends.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+meanPatternNew<-aggregate(activityNew$steps, list(Weekday=activityNew$dayEnd, Interval=activityNew$interval), FUN=mean)
+ggplot(meanPatternNew, aes(Interval, x)) + geom_line() + xlab("Interval") + ylab("Averag Steps")+labs(title="Time Series of Average Steps")+facet_grid(Weekday~.)
+dev.copy(png, file="figure4.png")
+dev.off()
+```
+The graphs show the difference between weekday and weekend steps pattern, weekday has higher max steps than weekend during a specific time interval, however, weekeday has relatively less steps than weekend during other time intervals.
